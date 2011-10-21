@@ -1,0 +1,42 @@
+General Information
+===================
+
+mysmartctl is a simple yet powerful tool to control the mySmartUSB controller.
+It supports all commands implemented by mySmartUSB MK2 v2.11. Should work for
+controllers with an older firmware as well.
+mysmartctl also implements a basic terminal to use mySmartUSB's data mode
+aka RS232-Pass-Through mode.
+
+mysmartctl is free software released under the MIT License, see the file
+"LICENSE" for more information.
+
+Requirements
+============
+
+mysmartctl requires ncurses [1].
+As its build requirements it also needs an ANSI C99 capable 
+compiler like GCC [2].
+
+  [1] http://www.gnu.org/software/ncurses/
+  [2] http://gcc.gnu.org
+
+Installation
+============
+
+To install mysmartctl you can use a prebuilt package for your
+distribution or you can use the GNU built systen.
+
+  $ ./configure
+  $ make
+  # make install
+
+For more information check INSTALL.
+
+Contribute
+==========
+
+You found a bug? You got a nice idea? Don't hesitate to get in touch
+with us:
+
+  http://reaktor42.de
+
