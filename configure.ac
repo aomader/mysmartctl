@@ -7,7 +7,7 @@ AC_PROG_CC_C99
 
 AC_CONFIG_SRCDIR([src/mysmartctl.c])
 AC_CONFIG_HEADERS([config.h])
-AC_CONFIG_FILES([Makefile src/Makefile])
+AC_CONFIG_FILES([Makefile src/Makefile data/Makefile])
 
 AC_HEADER_STDC
 AC_CHECK_HEADERS([string.h strings.h getopt.h errno.h sys/stat.h fcntl.h \
