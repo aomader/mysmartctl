@@ -165,7 +165,7 @@ static void parse_options(int argc, char *argv[])
         {"version", no_argument, NULL, 'v'},
         {0, 0, 0, 0}
     };
-    const char *short_opts = "dpqrRoOtb:ec:hv";
+    const char *short_opts = "dpqrROoLltb:ec:hv";
     int c;
 
     while ((c = getopt_long(argc, argv, short_opts, long_opts, NULL)) != -1)
