@@ -50,6 +50,8 @@ enum {
     RESET_PROGRAMMER,
     BOARD_ON,
     BOARD_OFF,
+    RESCUE_ON,
+    RESCUE_OFF,
     TERMINAL
 };
 
@@ -109,6 +111,12 @@ int main(int argc, char *argv[])
         case BOARD_OFF:
             mysmartusb('-', "Unable to turn the board power off\n",
                 "Successfully turned the board power off\n");
+        case RESCUE_ON:
+            mysmartusb('C', "Unable to turn on rescue mode\n",
+                "Successfully turned on rescue mode\n");
+        case RESCUE_OFF:
+            mysmartusb('c', "Unable to turn off rescue mode\n",
+                "Successfully turned off rescue mode\n");
         case TERMINAL:
             return terminal();
     }
@@ -126,9 +134,11 @@ static void parse_options(int argc, char *argv[])
         "  -q, --quiet-mode       Switch into quiet mode\n"
         "  -r, --reset-board      Reset the board\n"
         "  -R, --reset-programmer Reset the programmer\n"
-        "  -o, --board-on         Turn board power on\n"
-        "  -O, --board-off        Turn board power off\n"
-        "  -t, --terminal         Open a terminal session\n\n"
+        "  -O, --board-on         Turn board power on\n"
+        "  -o, --board-off        Turn board power off\n"
+        "  -t, --terminal         Open a terminal session\n"
+        "  -L, --rescue-clock-on  Turn on rescue clock\n"
+        "  -l, --rescue-clock-off Turn off rescue clock\n\n"
         "Options (for terminal mode only)\n"
         "  -b, --baud=BAUD        Defines the baud rate (default: 9600)\n"
         "  -c, --parity=MODE      Either none,even or odd (default: none)\n"
@@ -143,8 +153,10 @@ static void parse_options(int argc, char *argv[])
         {"quiet-mode", no_argument, NULL, 'q'},
         {"reset-board", no_argument, NULL, 'r'},
         {"reset-programmer", no_argument, NULL, 'R'},
-        {"board-on", no_argument, NULL, 'o'},
-        {"board-off", no_argument, NULL, 'O'},
+        {"board-on", no_argument, NULL, 'O'},
+        {"board-off", no_argument, NULL, 'o'},
+        {"rescue-clock-on", no_argument, NULL, 'L'},
+        {"rescue-clock-off", no_argument, NULL, 'l'},
         {"terminal", no_argument, NULL, 't'},
         {"baud", required_argument, NULL, 'b'},
         {"two-stopbits", no_argument, NULL, 'e'},
@@ -173,11 +185,17 @@ static void parse_options(int argc, char *argv[])
             case 'R':
                 mode = RESET_PROGRAMMER;
                 break;
-            case 'o':
+            case 'O':
                 mode = BOARD_ON;
                 break;
-            case 'O':
+            case 'o':
                 mode = BOARD_OFF;
+                break;
+            case 'L':
+                mode = RESCUE_ON;
+                break;
+            case 'l':
+                mode = RESCUE_OFF;
                 break;
             case 't':
                 mode = TERMINAL;
