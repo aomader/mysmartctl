@@ -42,10 +42,23 @@
 #include <time.h>
 #include <signal.h>
 
+#define bool_true(a) (strcmp((a), "on") == 0 || strcmp((a), "true") == 0 || \
+                      strcmp((a), "1") == 0 || strcmp((a), "yes") == 0)
+#define mysmartusb(a,b,c) \
+    if (mysmartusb_ctl((a), NULL) == (a)) { \
+        printf(c); \
+        return 0; \
+    } else { \
+        fprintf(stderr, c); \
+        return 1; \
+    }
+
 enum {
     DATA_MODE,
     PROGRAMMER_MODE,
     QUIET_MODE,
+    GET_MODE,
+    GET_VERSION,
     RESET_BOARD,
     RESET_PROGRAMMER,
     BOARD_ON,
@@ -70,24 +83,18 @@ static int parity = NO_PARITY;
 
 static void parse_options(int argc, char *argv[]);
 static int terminal();
-static int mysmartusb_ctl(char command);
+static int mysmartusb_ctl(char command, char **infos);
 static int open_tty(const char *path, speed_t baud, int two_stop_bits,
     int parity);
 static int write_tty(int device, const char *buffer, int length);
 static int close_tty(int device);
 
-#define mysmartusb(a,b,c) \
-    if (mysmartusb_ctl((a)) == -1) { \
-        printf(b); \
-        return 1; \
-    } else { \
-        printf(c); \
-        return 0; \
-    }
 
 int main(int argc, char *argv[])
 {
     parse_options(argc, argv);
+
+    char *response;
 
     switch (mode) {
         case DATA_MODE:
@@ -99,6 +106,33 @@ int main(int argc, char *argv[])
         case QUIET_MODE:
             mysmartusb('q', "Unable to switch into quiet mode\n",
                 "Successfully switched to quiet mode\n");
+        case GET_MODE:
+            switch(mysmartusb_ctl('i', NULL)) {
+                case -1:
+                    fprintf(stderr, "Unable to get status\n");
+                    return 1;
+                case 'p':
+                    printf("Currently in programming mode\n");
+                    break;
+                case 'd':
+                    printf("Currently in data mode\n");
+                    break;
+                case 'q':
+                    printf("Currently in quiet mode\n");
+                    break;
+                default:
+                    fprintf(stderr, "Unknown mode\n");
+                    return 1;
+            }
+            break;
+        case GET_VERSION:
+            if (mysmartusb_ctl('v', &response) == -1) {
+                fprintf(stderr, "Unable to get version\n");
+                return 1;
+            } else {
+                printf("%s\n", response);
+            }
+            break;
         case RESET_BOARD:
             mysmartusb('r', "Unable to reset the board\n",
                 "Successfully reset the board\n");
@@ -129,43 +163,43 @@ static void parse_options(int argc, char *argv[])
     const char usage[] =
         "Usage: mysmartctl <ACTION> [OPTIONS] INTERFACE\n\n"
         "Actions\n"
-        "  -d, --data-mode        Switch into data mode\n"
-        "  -p, --programmer-mode  Switch into programming mode\n"
-        "  -q, --quiet-mode       Switch into quiet mode\n"
-        "  -r, --reset-board      Reset the board\n"
-        "  -R, --reset-programmer Reset the programmer\n"
-        "  -O, --board-on         Turn board power on\n"
-        "  -o, --board-off        Turn board power off\n"
-        "  -t, --terminal         Open a terminal session\n"
-        "  -L, --rescue-clock-on  Turn on rescue clock\n"
-        "  -l, --rescue-clock-off Turn off rescue clock\n\n"
+        "  -d, --data-mode         Switch into data mode              {MK2,MK3}\n"
+        "  -p, --programmer-mode   Switch into programming mode       {MK2,MK3}\n"
+        "  -q, --quiet-mode        Switch into quiet mode             {MK2,MK3}\n"
+        "  -i, --get-mode          Current mode of the controller\n"
+        "  -v, --get-version       Get the version of the programmer\n"
+        "  -r, --reset-board       Reset the board\n"
+        "  -R, --reset-programmer  Reset the programmer               {Light}\n"
+        "  -o, --board-power=BOOL  Turn board power on/off\n"
+        "  -l, --rescue-clock=BOOL Turn rescue clock on/off           {MK2,MK3}\n"
+        "  -t, --terminal          Open a terminal session\n\n"
         "Options (for terminal mode only)\n"
-        "  -b, --baud=BAUD        Defines the baud rate (default: 9600)\n"
-        "  -c, --parity=MODE      Either none,even or odd (default: none)\n"
-        "  -e, --two-stopbits     Two stop bits intead of one\n"
+        "  -b, --baud=BAUD         Defines the baud rate (default: 9600)\n"
+        "  -c, --parity=MODE       Either none,even or odd (default: none)\n"
+        "  -e, --two-stopbits      Two stop bits intead of one\n"
         "\n"
-        "  -v, --version          Print the current version\n"
-        "  -h, --help             Print out this help\n";
+        "  -h, --help              Print out this help\n"
+        "      --version           Print the current version\n";
 
     struct option long_opts[] = {
         {"data-mode", no_argument, NULL, 'd'},
         {"programmer-mode", no_argument, NULL, 'p'},
         {"quiet-mode", no_argument, NULL, 'q'},
+        {"get-mode", no_argument, NULL, 'i'},
+        {"get-version", no_argument, NULL, 'v'},
         {"reset-board", no_argument, NULL, 'r'},
         {"reset-programmer", no_argument, NULL, 'R'},
-        {"board-on", no_argument, NULL, 'O'},
-        {"board-off", no_argument, NULL, 'o'},
-        {"rescue-clock-on", no_argument, NULL, 'L'},
-        {"rescue-clock-off", no_argument, NULL, 'l'},
+        {"board-power", required_argument, NULL, 'o'},
+        {"rescue-clock", required_argument, NULL, 'l'},
         {"terminal", no_argument, NULL, 't'},
         {"baud", required_argument, NULL, 'b'},
         {"two-stopbits", no_argument, NULL, 'e'},
         {"parity", required_argument, NULL, 'c'},
         {"help", no_argument, NULL, 'h'},
-        {"version", no_argument, NULL, 'v'},
+        {"version", no_argument, NULL, '#'},
         {0, 0, 0, 0}
     };
-    const char *short_opts = "dpqrROoLltb:ec:hv";
+    const char *short_opts = "dpqivrRo:l:tb:ec:h";
     int c;
 
     while ((c = getopt_long(argc, argv, short_opts, long_opts, NULL)) != -1)
@@ -179,23 +213,23 @@ static void parse_options(int argc, char *argv[])
             case 'q':
                 mode = QUIET_MODE;
                 break;
+            case 'i':
+                mode = GET_MODE;
+                break;
+            case 'v':
+                mode = GET_VERSION;
+                break;
             case 'r':
                 mode = RESET_BOARD;
                 break;
             case 'R':
                 mode = RESET_PROGRAMMER;
                 break;
-            case 'O':
-                mode = BOARD_ON;
-                break;
             case 'o':
-                mode = BOARD_OFF;
-                break;
-            case 'L':
-                mode = RESCUE_ON;
+                mode = (bool_true(optarg)) ? BOARD_ON : BOARD_OFF;
                 break;
             case 'l':
-                mode = RESCUE_OFF;
+                mode = (bool_true(optarg)) ? RESCUE_ON : RESCUE_OFF;
                 break;
             case 't':
                 mode = TERMINAL;
@@ -242,7 +276,7 @@ static void parse_options(int argc, char *argv[])
                     exit(EXIT_FAILURE);
                 }
                 break;
-            case 'v':
+            case '#':
                 printf(PACKAGE_STRING "\n");
                 exit(EXIT_SUCCESS);
             default:
@@ -366,21 +400,23 @@ static int terminal()
     return 0;
 }
 
-static int mysmartusb_ctl(char command)
+static int mysmartusb_ctl(char command, char **infos)
 {
     int tty = open_tty(interface, B19200, 0, NO_PARITY);
 
     if (tty == -1)
         return -1;
 
-    char buffer[16] = "\xE6\xB5\xBA\xB9\xB2\xB3\xA9";
-    char response[4] = "\xF7\xB1 \0";
-    buffer[7] = response[2] = command;
+    static char buffer[128] = "\xE6\xB5\xBA\xB9\xB2\xB3\xA9";
+    char *response = NULL;
+    buffer[7] = command;
     
     write_tty(tty, buffer, 8);
 
     int bytes, length = 0;
-    while ((bytes = read(tty, buffer + length, 15 - length)) > 0 && length < 16) {
+    while ((bytes = read(tty, buffer + length, 127 - length)) > 0 && length <
+        128)
+    {
         buffer[length += bytes] = 0;
 
         if (length > 1 && strstr(buffer, "\r\n") != NULL)
@@ -389,10 +425,24 @@ static int mysmartusb_ctl(char command)
 
     close_tty(tty);
 
-    if (strstr(buffer, response) == NULL)
+    printf("\n'%.*s'\n", length, buffer);
+
+    if ((response = strstr(buffer, "\xF7\xB1")) == NULL)
         return -1;
 
-    return 0;
+    if (infos != NULL) {
+        char *first = strchr(buffer, '\xF7');
+        char *end = strchr(first + 1, '\xF7');
+
+        if (first != NULL && end != NULL) {
+            *end = '\0';
+            *infos = first + 1;
+        } else {
+            *infos = NULL;
+        }
+    }
+
+    return *(response + 2);
 }
 
 static int open_tty(const char *path, speed_t baud, int two_stop_bits,
