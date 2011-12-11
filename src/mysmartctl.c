@@ -65,6 +65,13 @@ enum {
     BOARD_OFF,
     RESCUE_ON,
     RESCUE_OFF,
+    POWERONBURN_ON,
+    POWERONBURN_OFF,
+    POWERONBURN_STATUS,
+    BOARD_SUPPLY_3V,
+    BOARD_SUPPLY_5V,
+    BOARD_SUPPLY_STATUS,
+    GET_EMULATION,
     TERMINAL
 };
 
@@ -151,6 +158,57 @@ int main(int argc, char *argv[])
         case RESCUE_OFF:
             mysmartusb('c', "Unable to turn off rescue mode\n",
                 "Successfully turned off rescue mode\n");
+        case POWERONBURN_ON:
+            mysmartusb('w', "Unable to turn on powerOnBurn\n",
+                "Successfully turned on powerOnBurn\n");
+        case POWERONBURN_OFF:
+            mysmartusb('W', "Unable to turn off powerOnBurn\n",
+                "Successfully turned off powerOnBurn\n");
+        case POWERONBURN_STATUS:
+            switch(mysmartusb_ctl('%', NULL)) {
+                case -1:
+                    fprintf(stderr, "Unable to get powerOnBurn status\n");
+                    return 1;
+                case 'w':
+                    printf("powerOnBurn is on\n");
+                    break;
+                case 'W':
+                    printf("powerOnBurn is off\n");
+                    break;
+            }
+            break;
+        case BOARD_SUPPLY_3V:
+            mysmartusb('3', "Unable to switch board supply voltage\n",
+                "Successfully switched board supply to 3V\n");
+        case BOARD_SUPPLY_5V:
+            mysmartusb('5', "Unable to switch board supply voltage\n",
+                "Successfully switched board supply to 5V\n");
+        case BOARD_SUPPLY_STATUS:
+            switch(mysmartusb_ctl('^', NULL)) {
+                case -1:
+                    fprintf(stderr, "Unable to get board supply voltage\n");
+                    return 1;
+                case '3':
+                    printf("Board supply 3V\n");
+                    break;
+                case '5':
+                    printf("Board supply 5V\n");
+                    break;
+            }
+            break;
+        case GET_EMULATION:
+            switch(mysmartusb_ctl('t', NULL)) {
+                case -1:
+                    fprintf(stderr, "Unable to get emulation type\n");
+                    return 1;
+                case 'a':
+                    printf("Emulate AVR911\n");
+                    break;
+                case 's':
+                    printf("Emulate STK500\n");
+                    break;
+            }
+            break;
         case TERMINAL:
             return terminal();
     }
@@ -163,23 +221,29 @@ static void parse_options(int argc, char *argv[])
     const char usage[] =
         "Usage: mysmartctl <ACTION> [OPTIONS] INTERFACE\n\n"
         "Actions\n"
-        "  -d, --data-mode         Switch into data mode              {MK2,MK3}\n"
-        "  -p, --programmer-mode   Switch into programming mode       {MK2,MK3}\n"
-        "  -q, --quiet-mode        Switch into quiet mode             {MK2,MK3}\n"
-        "  -i, --get-mode          Current mode of the controller\n"
-        "  -v, --get-version       Get the version of the programmer\n"
-        "  -r, --reset-board       Reset the board\n"
-        "  -R, --reset-programmer  Reset the programmer               {Light}\n"
-        "  -o, --board-power=BOOL  Turn board power on/off\n"
-        "  -l, --rescue-clock=BOOL Turn rescue clock on/off           {MK2,MK3}\n"
-        "  -t, --terminal          Open a terminal session\n\n"
+        "  -d, --data-mode          Switch into data mode              {MK2,MK3}\n"
+        "  -p, --programmer-mode    Switch into programming mode       {MK2,MK3}\n"
+        "  -q, --quiet-mode         Switch into quiet mode             {MK2,MK3}\n"
+        "  -i, --get-mode           Current mode of the controller\n"
+        "  -v, --get-version        Get the version of the programmer\n"
+        "  -r, --reset-board        Reset the board\n"
+        "  -R, --reset-programmer   Reset the programmer               {Light}\n"
+        "  -o, --board-power=BOOL   Turn board power on/off\n"
+        "  -l, --rescue-clock=BOOL  Turn rescue clock on/off           {MK2,MK3}\n"
+        "  -u, --poweronburn=BOOL   Turn powerOnBurn on/off            {Light}\n"
+        "  -U, --get-poweronburn    Current status of powerOnBurn      {Light}\n"
+        "  -3, --board-3v           Switch board supply voltage to 3V  {Light}\n"
+        "  -5, --board-5v           Switch board supply voltage to 5V  {Light}\n"
+        "  -y, --get-board-supply   Get current board supply voltage   {Light}\n"
+        "  -x, --get-emulation      Get the programmer emulation       {Light}\n"
+        "  -t, --terminal           Open a terminal session\n\n"
         "Options (for terminal mode only)\n"
-        "  -b, --baud=BAUD         Defines the baud rate (default: 9600)\n"
-        "  -c, --parity=MODE       Either none,even or odd (default: none)\n"
-        "  -e, --two-stopbits      Two stop bits intead of one\n"
+        "  -b, --baud=BAUD          Defines the baud rate (default: 9600)\n"
+        "  -c, --parity=MODE        Either none,even or odd (default: none)\n"
+        "  -e, --two-stopbits       Two stop bits intead of one\n"
         "\n"
-        "  -h, --help              Print out this help\n"
-        "      --version           Print the current version\n";
+        "  -h, --help               Print out this help\n"
+        "      --version            Print the current version\n";
 
     struct option long_opts[] = {
         {"data-mode", no_argument, NULL, 'd'},
@@ -191,6 +255,12 @@ static void parse_options(int argc, char *argv[])
         {"reset-programmer", no_argument, NULL, 'R'},
         {"board-power", required_argument, NULL, 'o'},
         {"rescue-clock", required_argument, NULL, 'l'},
+        {"poweronburn", required_argument, NULL, 'u'},
+        {"get-poweronburn", no_argument, NULL, 'U'},
+        {"board-3v", no_argument, NULL, '3'},
+        {"board-5v", no_argument, NULL, '5'},
+        {"get-board-supply", no_argument, NULL, 'y'},
+        {"get-emulation", no_argument, NULL, 'x'},
         {"terminal", no_argument, NULL, 't'},
         {"baud", required_argument, NULL, 'b'},
         {"two-stopbits", no_argument, NULL, 'e'},
@@ -199,7 +269,7 @@ static void parse_options(int argc, char *argv[])
         {"version", no_argument, NULL, '#'},
         {0, 0, 0, 0}
     };
-    const char *short_opts = "dpqivrRo:l:tb:ec:h";
+    const char *short_opts = "dpqivrRo:l:u:U35yxtb:ec:h";
     int c;
 
     while ((c = getopt_long(argc, argv, short_opts, long_opts, NULL)) != -1)
@@ -230,6 +300,24 @@ static void parse_options(int argc, char *argv[])
                 break;
             case 'l':
                 mode = (bool_true(optarg)) ? RESCUE_ON : RESCUE_OFF;
+                break;
+            case 'u':
+                mode = (bool_true(optarg)) ? POWERONBURN_ON : POWERONBURN_OFF;
+                break;
+            case 'U':
+                mode = POWERONBURN_STATUS;
+                break;
+            case '3':
+                mode = BOARD_SUPPLY_3V;
+                break;
+            case '5':
+                mode = BOARD_SUPPLY_5V;
+                break;
+            case 'y':
+                mode = BOARD_SUPPLY_STATUS;
+                break;
+            case 'x':
+                mode = GET_EMULATION;
                 break;
             case 't':
                 mode = TERMINAL;
